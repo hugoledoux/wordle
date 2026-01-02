@@ -142,7 +142,7 @@ def calculate_head_to_head(results):
     return h2h_stats
 
 
-def plot_statistics(stats, h2h_stats):
+def plot_statistics(stats, h2h_stats, results):
     """Create matplotlib visualizations"""
     players = sorted(stats.keys())
 
@@ -151,8 +151,8 @@ def plot_statistics(stats, h2h_stats):
         set(year for player_stats in stats.values() for year in player_stats.keys())
     )
 
-    # Create figure with multiple subplots (2x2 layout)
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    # Create figure with multiple subplots (2x3 layout)
+    fig, axes = plt.subplots(2, 3, figsize=(24, 12))
     fig.suptitle("Wordle: Battles of the titans", fontsize=16, fontweight="bold")
 
     # Flatten axes array for easier indexing
@@ -374,6 +374,86 @@ def plot_statistics(stats, h2h_stats):
     ax4.legend()
     ax4.grid(axis="y", alpha=0.3)
 
+    # 5. Cumulative head-to-head score (Sylvain vs Hugo) - Weekly
+    ax5 = axes[4]
+
+    # Group results by puzzle number to find head-to-head matchups
+    from collections import defaultdict
+    puzzles_by_date = defaultdict(lambda: {'date': None, 'players': {}})
+
+    for result in results:
+        puzzle_num = result['puzzle_num']
+        player = result['player']
+        attempts = result['attempts']
+        date = result['date']
+
+        # Store the result
+        if puzzles_by_date[puzzle_num]['date'] is None:
+            puzzles_by_date[puzzle_num]['date'] = date
+
+        # Convert attempts to numeric value (X = 7 for comparison)
+        attempts_val = 7 if attempts == "X" else int(attempts)
+        puzzles_by_date[puzzle_num]['players'][player] = attempts_val
+
+    # Calculate cumulative score for each head-to-head matchup chronologically
+    weekly_data = []
+    running_total = 0
+
+    # Sort puzzles by date
+    sorted_puzzles = sorted(puzzles_by_date.items(), key=lambda x: x[1]['date'])
+
+    for puzzle_num, data in sorted_puzzles:
+        players = data['players']
+        date = data['date']
+
+        # Only process if both players played
+        if 'Hugo Ledoux' in players and 'Sylvain Roy' in players:
+            hugo_attempts = players['Hugo Ledoux']
+            sylvain_attempts = players['Sylvain Roy']
+
+            # Update running total
+            if sylvain_attempts < hugo_attempts:
+                running_total += 1
+            elif hugo_attempts < sylvain_attempts:
+                running_total -= 1
+            # Ties don't change the score
+
+            weekly_data.append({'date': date, 'score': running_total})
+
+    # Extract dates and scores for plotting
+    dates = [d['date'] for d in weekly_data]
+    scores = [d['score'] for d in weekly_data]
+
+    # Plot line graph
+    ax5.plot(dates, scores, linewidth=1.5, color='#7f8c8d', alpha=0.8, zorder=3)
+
+    # Fill area above/below zero with different colors
+    ax5.fill_between(dates, scores, 0,
+                     where=[score >= 0 for score in scores],
+                     alpha=0.3, color='#e74c3c', label='Sylvain Ahead')
+    ax5.fill_between(dates, scores, 0,
+                     where=[score < 0 for score in scores],
+                     alpha=0.3, color='#3498db', label='Hugo Ahead')
+
+    # Add horizontal line at y=0
+    ax5.axhline(y=0, color='black', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
+
+    ax5.set_xlabel("Date", fontweight="bold")
+    ax5.set_ylabel("Cumulative Score (Sylvain - Hugo)", fontweight="bold")
+    ax5.set_title("Cumulative Head-to-Head Score Over Time")
+    ax5.legend(loc='best')
+    ax5.grid(axis="both", alpha=0.3)
+
+    # Format x-axis to show dates nicely
+    import matplotlib.dates as mdates
+    ax5.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    ax5.xaxis.set_major_locator(mdates.YearLocator())
+    ax5.xaxis.set_minor_locator(mdates.MonthLocator((1, 4, 7, 10)))
+    plt.setp(ax5.xaxis.get_majorticklabels(), rotation=45, ha='right')
+
+    # Hide the 6th subplot (unused)
+    axes[5].axis('off')
+
     plt.tight_layout()
     plt.savefig("wordle_statistics.png", dpi=300, bbox_inches="tight")
     print("\nPlot saved as 'wordle_statistics.png'")
@@ -442,5 +522,5 @@ if __name__ == "__main__":
         print(f"    Total head-to-head games: {total}")
 
     print("\nGenerating visualizations...")
-    plot_statistics(stats, h2h_stats)
+    plot_statistics(stats, h2h_stats, results)
     print("\nDone!")
