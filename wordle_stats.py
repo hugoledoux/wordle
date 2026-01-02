@@ -250,16 +250,18 @@ def plot_statistics(stats, h2h_stats):
     ax3 = axes[2]
     attempts_range = range(1, 7)
     width_dist = 0.35
-    x_dist = range(len(attempts_range))
+    x_dist = range(len(attempts_range) + 1)  # +1 for X/6
 
     for i, player in enumerate(players):
-        dist = [0] * 6
+        dist = [0] * 7  # 1-6 plus X
         for year in all_years:
             if year in stats[player]:
                 for attempt_num in attempts_range:
                     dist[attempt_num - 1] += stats[player][year]["attempts_dist"].get(
                         attempt_num, 0
                     )
+                # Add losses (X/6) as the 7th bar
+                dist[6] += stats[player][year]["losses"]
 
         offset = width_dist * (i - 0.5)
         bars = ax3.bar(
@@ -288,7 +290,7 @@ def plot_statistics(stats, h2h_stats):
     ax3.set_ylabel("Count", fontweight="bold")
     ax3.set_title("Distribution of Attempts (All Years)")
     ax3.set_xticks(x_dist)
-    ax3.set_xticklabels(attempts_range)
+    ax3.set_xticklabels([1, 2, 3, 4, 5, 6, "X"])
     ax3.legend()
     ax3.grid(axis="y", alpha=0.3)
 
